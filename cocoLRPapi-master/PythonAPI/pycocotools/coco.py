@@ -56,6 +56,7 @@ from . import mask as maskUtils
 import os
 from collections import defaultdict
 import sys
+import pdb
 PYTHON_VERSION = sys.version_info[0]
 if PYTHON_VERSION == 2:
     from urllib import urlretrieve
@@ -350,7 +351,8 @@ class COCO:
                 ann['id'] = id + 1
                 ann['bbox'] = [x0,y0,x1-x0,y1-y0]
         print('DONE (t={:0.2f}s)'.format(time.time()- tic))
-
+        # for i in range(len(anns)):
+        #    anns[i]['score']=0.0
         res.dataset['annotations'] = anns
         res.createIndex()
         return res

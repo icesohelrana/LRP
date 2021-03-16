@@ -8,6 +8,7 @@ from . import mask as maskUtils
 import copy
 import pdb
 import sys
+import natsort
 
 class COCOevalLRP:
     # Interface for evaluating detection on the Microsoft COCO dataset.
@@ -59,7 +60,7 @@ class COCOevalLRP:
     # Data, paper, and tutorials available at:  http://mscoco.org/
     # Code written by Piotr Dollar and Tsung-Yi Lin, 2015.
     # Licensed under the Simplified BSD License [see coco/license.txt]
-    def __init__(self, cocoGt=None, cocoDt=None, tau=0.5):
+    def __init__(self, cocoGt=None, cocoDt=None,tau=0.5,gt_boxmaps=None,dt_boxmaps=None):
         '''
         Initialize CocoEval using coco APIs for gt and dt
         :param cocoGt: coco object with ground truth annotations
@@ -81,7 +82,9 @@ class COCOevalLRP:
             self.params.imgIds = sorted(cocoGt.getImgIds())
             self.params.catIds = sorted(cocoGt.getCatIds())
 
-
+        if not gt_boxmaps is None:
+            self._gts_boxmaps=gt_boxmaps
+            self._dts_boxmaps=dt_boxmaps
     def _prepare(self):
         '''
         Prepare ._gts and ._dts for evaluation based on params
@@ -99,7 +102,6 @@ class COCOevalLRP:
         else:
             gts=self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=p.imgIds))
             dts=self.cocoDt.loadAnns(self.cocoDt.getAnnIds(imgIds=p.imgIds))
-
         # set ignore flag
         for gt in gts:
             gt['ignore'] = gt['ignore'] if 'ignore' in gt else 0
@@ -109,6 +111,7 @@ class COCOevalLRP:
         for gt in gts:
             self._gts[gt['image_id'], gt['category_id']].append(gt)
         for dt in dts:
+            
             self._dts[dt['image_id'], dt['category_id']].append(dt)
         self.evalImgs = defaultdict(list)   # per-image per-category evaluation results
         self.eval     = {}                  # accumulated evaluation results
@@ -131,6 +134,7 @@ class COCOevalLRP:
         catIds = p.catIds if p.useCats else [-1]
 
         computeIoU = self.computeIoU
+
         self.ious = {(imgId, catId): computeIoU(imgId, catId) \
                         for imgId in p.imgIds
                         for catId in catIds}
@@ -146,8 +150,9 @@ class COCOevalLRP:
         self._paramsEval = copy.deepcopy(self.params)
         toc = time.time()
         print('DONE (t={:0.2f}s).'.format(toc-tic))
-
+    # def computeBoxmapOverlap(self,imgI):
     def computeIoU(self, imgId, catId):
+        import pdb
         p = self.params
         if p.useCats:
             gt = self._gts[imgId,catId]
@@ -338,7 +343,8 @@ class COCOevalLRP:
                 FPError[s,k]=nhat[s,k]/(omega[s,k]+nhat[s,k]);
                 FNError[s,k]=mhat[s,k]/npig
             
-            OptLRPError[0,k]=min(LRPError[:,k]) 
+            OptLRPError[0,k]=min(LRPError[:,k])
+            #import pdb; pdb.set_trace()
             ind=np.argmin(LRPError[:,k])
             OptLocError[0,k]=LocError[ind,k]
             OptFPError[0,k]=FPError[ind,k]
@@ -431,7 +437,20 @@ class COCOevalLRP:
             print(self.eval['OptThresholds'])
             print('------------------------------------------------------ \n ')
             print('------------------------------------------------------ \n ')
-
+    def convert_sports_to_coco_detection(self,prediction):
+        # import pdb
+        # pdb.set_trace()
+        # coco_preds = {}
+        # for inds,prediction in enumerate(predictions):
+        coco_pred = {}
+        coco_pred['boxes'] = torch.tensor(prediction[:,0:4])
+        coco_pred['scores'] = torch.tensor(prediction[:,4])
+        coco_pred['labels'] = torch.ones(prediction[:,4].shape)
+        coco_preds = tuple([coco_pred])
+            # coco_preds[inds] = {'boxes':,'scores':,'labels':}
+            # coco_preds[inds] = {}
+            # coco_preds[inds] = {}
+        return coco_preds
 
 
  
@@ -444,7 +463,10 @@ class Params:
         self.imgIds = []
         self.catIds = []
         # np.arange causes trouble.  the data point on arange is slightly larger than the true value
+
         self.confScores = np.linspace(.0, 1.00, np.round((1.00 - .0) / .01) + 1, endpoint=True)
+        # import pdb; pdb.set_trace()
+        # self.confScores=np.array([0.90])
         self.maxDets = 100
         self.areaRng = [[0 ** 2, 1e5 ** 2]]
         self.areaRngLbl = ['all']
