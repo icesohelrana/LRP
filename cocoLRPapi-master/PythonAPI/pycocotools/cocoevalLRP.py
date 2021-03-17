@@ -464,7 +464,7 @@ class Params:
         self.catIds = []
         # np.arange causes trouble.  the data point on arange is slightly larger than the true value
 
-        self.confScores = np.linspace(.0, 1.00, np.round((1.00 - .0) / .01) + 1, endpoint=True)
+        self.confScores = np.linspace(.0, 1.00, int((1.00 - .0) / .01) + 1, endpoint=True)
         # import pdb; pdb.set_trace()
         # self.confScores=np.array([0.90])
         self.maxDets = 100
